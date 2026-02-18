@@ -33,15 +33,19 @@ ROLE_TEAMS = {
     Role.IDIOT: Team.VILLAGER,
 }
 
-# 预设板子
+# 预设板子（参考 https://zh.wikiversity.org/wiki/狼人殺/板子）
 BOARDS = {
-    "6人": [Role.WEREWOLF, Role.WEREWOLF, Role.VILLAGER, Role.VILLAGER, Role.VILLAGER, Role.VILLAGER],
+    # 6人明牌局：预言家+猎人+2平民 vs 2狼人
+    "6人": [Role.WEREWOLF, Role.WEREWOLF,
+            Role.SEER, Role.HUNTER, Role.VILLAGER, Role.VILLAGER],
+    # 9人标准局：预言家+女巫+猎人+3平民 vs 3狼人
     "9人标准": [Role.WEREWOLF, Role.WEREWOLF, Role.WEREWOLF,
-                Role.VILLAGER, Role.VILLAGER, Role.VILLAGER,
-                Role.SEER, Role.WITCH, Role.HUNTER],
-    "12人完整": [Role.WEREWOLF, Role.WEREWOLF, Role.WEREWOLF, Role.WEREWOLF,
-                 Role.VILLAGER, Role.VILLAGER, Role.VILLAGER, Role.VILLAGER,
-                 Role.SEER, Role.WITCH, Role.HUNTER, Role.GUARD],
+                Role.SEER, Role.WITCH, Role.HUNTER,
+                Role.VILLAGER, Role.VILLAGER, Role.VILLAGER],
+    # 12人预女猎白标准板：预言家+女巫+猎人+白痴+4平民 vs 4狼人
+    "12人标准": [Role.WEREWOLF, Role.WEREWOLF, Role.WEREWOLF, Role.WEREWOLF,
+                 Role.SEER, Role.WITCH, Role.HUNTER, Role.IDIOT,
+                 Role.VILLAGER, Role.VILLAGER, Role.VILLAGER, Role.VILLAGER],
 }
 
 @dataclass
