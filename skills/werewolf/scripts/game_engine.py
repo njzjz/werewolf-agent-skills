@@ -259,7 +259,7 @@ class GameEngine:
         
         if not wolves:
             return "好人胜利"
-        if not gods or not peasants:
+        if not gods or not peasants or len(wolves) >= len(villagers):
             return "狼人胜利"
         return None
 
