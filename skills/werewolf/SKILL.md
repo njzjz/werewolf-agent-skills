@@ -8,6 +8,29 @@ description: |
 
 # 狼人杀游戏组织 Skill
 
+## 前置要求
+
+**必须配置以下 subagents 参数**以支持狼人杀三层架构（主→法官→玩家）：
+
+```json
+{
+  "agents": {
+    "defaults": {
+      "subagents": {
+        "maxSpawnDepth": 2,        // 允许法官创建玩家 Agent（默认 1）
+        "maxChildrenPerAgent": 12, // 法官可同时创建的玩家数（默认 5）
+        "maxConcurrent": 12        // 全局并发上限（默认 8）
+      }
+    }
+  }
+}
+```
+
+**关键参数说明**：
+- `maxSpawnDepth: 2` — 必须设为 2，允许法官（depth-1）创建玩家（depth-2）
+- `maxChildrenPerAgent: 12` — 每个法官最多同时创建 12 个玩家，支持 12 人局
+- `maxConcurrent: 12` — 全局并发上限，确保所有玩家能同时运行
+
 ## 核心架构 (Max Depth: 2)
 
 ```mermaid
@@ -20,14 +43,16 @@ graph TD
     B -->|report public info| A
 ```
 
-- **主 Session**: 
+- **主 Session**:
   - 职责：只负责启动法官，忠实转发法官输出的**公开信息**（如"天亮了，昨晚平安夜"），不进行分析，不剧透。
   - 权限：不知道玩家真实身份，不知道夜间具体行动。
+  - **🚨 严格禁止**：主 Session **绝对禁止**读取 `game_state.json` 或查询子 Agent 状态。法官给什么，就转发什么。
 
 - **法官 Session (子 Agent)**:
   - 职责：游戏主控。分配角色，创建玩家 Agent，推进流程（天黑/天亮/发言/投票），判定胜负。
   - 记忆：使用 `game_state.json` 持久化存储所有状态（身份、存活、技能使用等）。
   - 输出：仅输出公开的游戏进展，游戏结束时才揭晓复盘。
+  - **🚨 信息隔离**：向主 Session 播报时，**严禁透露玩家真实身份**。只能用"玩家X"指代，不能用"🐺 玩家X（狼人）"这种标记。
 
 - **玩家 Session (孙 Agent)**:
   - 职责：扮演特定角色。
