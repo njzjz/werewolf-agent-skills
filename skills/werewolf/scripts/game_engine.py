@@ -6,11 +6,12 @@
 
 import json
 import random
-from dataclasses import dataclass, asdict
+import os
+from dataclasses import dataclass, asdict, field
 from enum import Enum
-from typing import Optional
+from typing import Optional, List, Dict
 
-class Role(Enum):
+class Role(str, Enum):
     WEREWOLF = "狼人"
     VILLAGER = "平民"
     SEER = "预言家"
@@ -19,7 +20,7 @@ class Role(Enum):
     GUARD = "守卫"
     IDIOT = "白痴"
 
-class Team(Enum):
+class Team(str, Enum):
     WEREWOLF = "狼人阵营"
     VILLAGER = "好人阵营"
 
@@ -33,16 +34,13 @@ ROLE_TEAMS = {
     Role.IDIOT: Team.VILLAGER,
 }
 
-# 预设板子（参考 https://zh.wikiversity.org/wiki/狼人殺/板子）
+# 预设板子
 BOARDS = {
-    # 6人明牌局：预言家+猎人+2平民 vs 2狼人
     "6人": [Role.WEREWOLF, Role.WEREWOLF,
             Role.SEER, Role.HUNTER, Role.VILLAGER, Role.VILLAGER],
-    # 9人标准局：预言家+女巫+猎人+3平民 vs 3狼人
     "9人标准": [Role.WEREWOLF, Role.WEREWOLF, Role.WEREWOLF,
                 Role.SEER, Role.WITCH, Role.HUNTER,
                 Role.VILLAGER, Role.VILLAGER, Role.VILLAGER],
-    # 12人预女猎白标准板：预言家+女巫+猎人+白痴+4平民 vs 4狼人
     "12人标准": [Role.WEREWOLF, Role.WEREWOLF, Role.WEREWOLF, Role.WEREWOLF,
                  Role.SEER, Role.WITCH, Role.HUNTER, Role.IDIOT,
                  Role.VILLAGER, Role.VILLAGER, Role.VILLAGER, Role.VILLAGER],
@@ -52,11 +50,10 @@ BOARDS = {
 class Player:
     id: str
     name: str
-    role: Optional[Role] = None
-    team: Optional[Team] = None
+    role: Optional[str] = None  # Store as string for JSON serialization
+    team: Optional[str] = None
     alive: bool = True
     can_vote: bool = True
-    # 技能状态
     witch_antidote_used: bool = False
     witch_poison_used: bool = False
     hunter_can_shoot: bool = True
@@ -65,153 +62,221 @@ class Player:
 
 @dataclass
 class GameState:
-    day: int = 0  # 0=游戏未开始, 1=第一天
-    phase: str = "setup"  # setup, night, day, ended
-    players: list = None
-    last_night_deaths: list = None
+    day: int = 0
+    phase: str = "setup"
+    players: List[Player] = field(default_factory=list)
+    last_night_deaths: List[str] = field(default_factory=list)
     last_day_voted: Optional[str] = None
     winner: Optional[str] = None
 
-    def __post_init__(self):
-        if self.players is None:
-            self.players = []
-        if self.last_night_deaths is None:
-            self.last_night_deaths = []
-
 class GameEngine:
-    def __init__(self):
+    def __init__(self, state_file="game_state.json"):
+        self.state_file = state_file
         self.state = GameState()
-        self._night_actions = {}  # 存储夜间行动
+        self.load_state()
+
+    def save_state(self):
+        with open(self.state_file, "w") as f:
+            json.dump(asdict(self.state), f, indent=2, ensure_ascii=False)
+
+    def load_state(self):
+        if os.path.exists(self.state_file):
+            try:
+                with open(self.state_file, "r") as f:
+                    data = json.load(f)
+                    players_data = data.pop("players", [])
+                    self.state = GameState(**data)
+                    self.state.players = [Player(**p) for p in players_data]
+            except Exception as e:
+                print(f"Error loading state: {e}")
 
     def setup_game(self, player_names: list[str], board_name: str = "9人标准") -> dict:
-        """初始化游戏，分配角色"""
         if board_name not in BOARDS:
-            available = ", ".join(BOARDS.keys())
-            return {"error": f"未知板子: {board_name}. 可用: {available}"}
+            return {"error": f"未知板子: {board_name}"}
 
         board = BOARDS[board_name]
         if len(player_names) != len(board):
             return {"error": f"板子 {board_name} 需要 {len(board)} 人，但提供了 {len(player_names)} 人"}
 
-        # 随机分配角色
-        roles = board.copy()
+        roles = [r.value for r in board]
         random.shuffle(roles)
 
         self.state.players = []
         for i, name in enumerate(player_names):
-            role = roles[i]
+            role_str = roles[i]
+            role_enum = Role(role_str)
             player = Player(
                 id=f"player_{i}",
                 name=name,
-                role=role,
-                team=ROLE_TEAMS[role]
+                role=role_str,
+                team=ROLE_TEAMS[role_enum].value
             )
             self.state.players.append(player)
 
         self.state.phase = "night"
         self.state.day = 1
+        self.save_state()
 
         return {
             "success": True,
             "assignments": [
-                {"player": p.name, "role": p.role.value, "team": p.team.value}
+                {"player": p.name, "role": p.role, "team": p.team}
                 for p in self.state.players
             ]
         }
 
-    def get_player_role(self, player_name: str) -> Optional[dict]:
-        """获取玩家角色信息（用于告知玩家）"""
+    def _get_player(self, name: str) -> Optional[Player]:
         for p in self.state.players:
-            if p.name == player_name:
-                return {
-                    "name": p.name,
-                    "role": p.role.value,
-                    "team": p.team.value,
-                    "teammates": [
-                        {"name": other.name, "role": other.role.value}
-                        for other in self.state.players
-                        if other.name != p.name and other.team == p.team and p.team == Team.WEREWOLF
-                    ] if p.team == Team.WEREWOLF else None
-                }
+            if p.name == name:
+                return p
         return None
 
-    def get_werewolves(self) -> list[dict]:
-        """获取所有狼人（用于狼人互相确认）"""
-        return [
-            {"name": p.name, "id": p.id}
-            for p in self.state.players
-            if p.role == Role.WEREWOLF and p.alive
-        ]
+    def _get_witch(self) -> Optional[Player]:
+        for p in self.state.players:
+            if p.role == Role.WITCH.value and p.alive:
+                return p
+        return None
+
+    def get_player_role(self, player_name: str) -> Optional[dict]:
+        p = self._get_player(player_name)
+        if not p:
+            return None
+        
+        teammates = []
+        if p.team == Team.WEREWOLF.value:
+            teammates = [
+                {"name": other.name, "role": other.role}
+                for other in self.state.players
+                if other.name != p.name and other.team == p.team
+            ]
+            
+        return {
+            "name": p.name,
+            "role": p.role,
+            "team": p.team,
+            "teammates": teammates
+        }
 
     def process_night(self, actions: dict) -> dict:
-        """
-        处理夜间行动
-        actions: {
-            "werewolf_target": "玩家名",
-            "witch_save": true/false,
-            "witch_poison_target": "玩家名"/null,
-            "seer_check": "玩家名",
-            "guard_target": "玩家名"
-        }
-        """
         deaths = []
         results = {"seer_result": None}
-
-        # 1. 处理守卫
+        
+        # 1. 守卫
         guarded = actions.get("guard_target")
-
-        # 2. 处理狼人击杀
+        
+        # 2. 狼人
         werewolf_target = actions.get("werewolf_target")
         if werewolf_target:
-            target_player = self._get_player(werewolf_target)
-            if target_player and target_player.alive:
-                # 检查是否被守护
-                if guarded == werewolf_target:
-                    # 被守护，不死
-                    pass
-                else:
-                    # 被击杀
+            target_p = self._get_player(werewolf_target)
+            if target_p and target_p.alive:
+                if guarded != werewolf_target:
                     deaths.append(werewolf_target)
 
-        # 3. 处理女巫
-        if actions.get("witch_save") and werewolf_target:
-            # 使用解药
-            witch = self._get_witch()
-            if witch and not witch.witch_antidote_used:
-                # 检查奶穿
-                if guarded == werewolf_target:
-                    # 同守同救，死亡
-                    pass  # 已经在deaths中
-                else:
-                    # 救活
-                    if werewolf_target in deaths:
-                        deaths.remove(werewolf_target)
-                witch.witch_antidote_used = True
-
-        if actions.get("witch_poison_target"):
+        # 3. 女巫
+        witch = self._get_witch()
+        if witch:
+            if actions.get("witch_save") and werewolf_target:
+                if not witch.witch_antidote_used:
+                    if guarded == werewolf_target:
+                        # 同守同救 = 死
+                        if werewolf_target not in deaths:
+                            deaths.append(werewolf_target)
+                    else:
+                        if werewolf_target in deaths:
+                            deaths.remove(werewolf_target)
+                    witch.witch_antidote_used = True
+            
             poison_target = actions.get("witch_poison_target")
-            witch = self._get_witch()
-            if witch and not witch.witch_poison_used:
+            if poison_target and not witch.witch_poison_used:
                 if poison_target not in deaths:
                     deaths.append(poison_target)
                 witch.witch_poison_used = True
-                # 被毒死的猎人不能开枪
-                target = self._get_player(poison_target)
-                if target and target.role == Role.HUNTER:
-                    target.hunter_can_shoot = False
+                
+                target_p = self._get_player(poison_target)
+                if target_p and target_p.role == Role.HUNTER.value:
+                    target_p.hunter_can_shoot = False
 
-        # 4. 处理预言家查验
+        # 4. 预言家
         seer_check = actions.get("seer_check")
         if seer_check:
-            target = self._get_player(seer_check)
-            if target:
+            target_p = self._get_player(seer_check)
+            if target_p:
                 results["seer_result"] = {
                     "target": seer_check,
-                    "is_werewolf": target.role == Role.WEREWOLF
+                    "is_werewolf": target_p.role == Role.WEREWOLF.value
                 }
 
-        # 应用死亡
-        for death_name in deaths:
-            player = self._get_player(death_name)
-            if player:
-                player.alive
+        # 结算死亡
+        self.state.last_night_deaths = deaths
+        for d in deaths:
+            p = self._get_player(d)
+            if p:
+                p.alive = False
+        
+        self.state.phase = "day"
+        self.save_state()
+        
+        return {
+            "deaths": deaths,
+            "seer_result": results["seer_result"]
+        }
+
+    def process_vote(self, votes: dict) -> dict:
+        """处理白天投票 votes: {voter_name: target_name}"""
+        counts = {}
+        for voter, target in votes.items():
+            if target not in counts:
+                counts[target] = 0
+            counts[target] += 1
+            
+        if not counts:
+            return {"out": None, "tie": False}
+            
+        max_votes = max(counts.values())
+        candidates = [p for p, c in counts.items() if c == max_votes]
+        
+        out_player = None
+        if len(candidates) == 1:
+            out_player = candidates[0]
+            p = self._get_player(out_player)
+            if p:
+                p.alive = False
+                if p.role == Role.IDIOT.value:
+                    p.alive = True # 白痴翻牌不死
+                    p.idiot_revealed = True
+                    p.can_vote = False
+                    out_player = f"{out_player} (白痴翻牌)"
+        
+        self.state.last_day_voted = out_player
+        self.save_state()
+        return {"out": out_player, "tie": len(candidates) > 1}
+
+    def check_winner(self) -> Optional[str]:
+        wolves = [p for p in self.state.players if p.team == Team.WEREWOLF.value and p.alive]
+        villagers = [p for p in self.state.players if p.team == Team.VILLAGER.value and p.alive]
+        gods = [p for p in villagers if p.role != Role.VILLAGER.value]
+        peasants = [p for p in villagers if p.role == Role.VILLAGER.value]
+        
+        if not wolves:
+            return "好人胜利"
+        if not gods or not peasants:
+            return "狼人胜利"
+        return None
+
+if __name__ == "__main__":
+    import sys
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "state"
+    engine = GameEngine()
+    
+    if cmd == "setup":
+        players = json.loads(sys.argv[2])
+        board = sys.argv[3]
+        print(json.dumps(engine.setup_game(players, board), ensure_ascii=False))
+    elif cmd == "state":
+        print(json.dumps(asdict(engine.state), ensure_ascii=False))
+    elif cmd == "night":
+        actions = json.loads(sys.argv[2])
+        print(json.dumps(engine.process_night(actions), ensure_ascii=False))
+    elif cmd == "vote":
+        votes = json.loads(sys.argv[2])
+        print(json.dumps(engine.process_vote(votes), ensure_ascii=False))
