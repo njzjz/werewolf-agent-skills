@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from packages.werewolf_core.batch import run_batch_simulations
 from packages.werewolf_core.channels import ChannelAccessError, ChannelRegistry
 from packages.werewolf_core.e2e import simulate_game_6p
 from packages.werewolf_core.fsm import GamePhase
@@ -101,12 +102,18 @@ def test_e2e_sim() -> None:
     assert out["phase"] == "game_over"
 
 
+def test_batch() -> None:
+    out = run_batch_simulations(runs=3, seed_start=1, max_days=4)
+    assert out["summary"]["runs"] == 3
+
+
 def main() -> None:
     test_fsm()
     test_protocol()
     test_channels()
     test_game_core()
     test_e2e_sim()
+    test_batch()
     print("SMOKE_OK")
 
 
