@@ -27,7 +27,6 @@ packages/
   werewolf_core/
 docs/
   architecture.md
-  migration.md
 tests/
 ```
 
@@ -37,6 +36,8 @@ tests/
 - 玩家不再“自然语言裸回”，必须回结构化 JSON。
 - 私有信息隔离由程序 ACL 保障，不靠“自觉”。
 
-## 开发说明
+## Breaking change
 
-当前仓库处于重构中间态，legacy `skills/werewolf` 暂时保留，后续会给出兼容 wrapper 与迁移步骤。
+旧目录 `skills/werewolf` 已删除。请直接使用：
+- `skills/werewolf-judge`
+- `skills/werewolf-player`
