@@ -16,6 +16,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from packages.werewolf_core.channels import ChannelAccessError, ChannelRegistry
+from packages.werewolf_core.e2e import simulate_game_6p
 from packages.werewolf_core.fsm import GamePhase
 from packages.werewolf_core.game import GameCore
 from packages.werewolf_core.orchestrator import JudgeOrchestrator
@@ -94,11 +95,18 @@ def test_game_core() -> None:
         assert "out" in vote
 
 
+def test_e2e_sim() -> None:
+    out = simulate_game_6p(seed=1, max_days=4)
+    assert out["winner"]
+    assert out["phase"] == "game_over"
+
+
 def main() -> None:
     test_fsm()
     test_protocol()
     test_channels()
     test_game_core()
+    test_e2e_sim()
     print("SMOKE_OK")
 
 
