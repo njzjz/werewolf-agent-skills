@@ -7,6 +7,7 @@ Usage:
 
 from __future__ import annotations
 
+import tempfile
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from packages.werewolf_core.channels import ChannelAccessError, ChannelRegistry
 from packages.werewolf_core.fsm import GamePhase
+from packages.werewolf_core.game import GameCore
 from packages.werewolf_core.orchestrator import JudgeOrchestrator
 from packages.werewolf_core.protocol import ValidationError, validate_judge_task, validate_player_reply
 
@@ -69,10 +71,34 @@ def test_channels() -> None:
         pass
 
 
+def test_game_core() -> None:
+    with tempfile.TemporaryDirectory() as td:
+        state_file = Path(td) / "game_state.json"
+        core = GameCore(state_file=str(state_file))
+        players = ["p1", "p2", "p3", "p4", "p5", "p6"]
+        core.setup_game(players, "6人")
+
+        night = core.process_night({"werewolf_target": "p3", "seer_check": "p1"})
+        assert "deaths" in night
+
+        vote = core.process_vote(
+            {
+                "p1": "p2",
+                "p2": "p3",
+                "p3": "p2",
+                "p4": "p2",
+                "p5": "p2",
+                "p6": "p2",
+            }
+        )
+        assert "out" in vote
+
+
 def main() -> None:
     test_fsm()
     test_protocol()
     test_channels()
+    test_game_core()
     print("SMOKE_OK")
 
 
