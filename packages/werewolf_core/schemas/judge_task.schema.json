@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/judge_task.schema.json",
+  "title": "JudgeTask",
+  "type": "object",
+  "required": [
+    "game_id",
+    "phase",
+    "player_id",
+    "schema_version",
+    "visible_context",
+    "action_options",
+    "deadline_s"
+  ],
+  "properties": {
+    "game_id": { "type": "string", "minLength": 1 },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "setup",
+        "night_werewolf",
+        "night_seer",
+        "night_witch",
+        "day_announce",
+        "day_speech",
+        "day_vote",
+        "day_last_words",
+        "game_over"
+      ]
+    },
+    "player_id": { "type": "string", "minLength": 1 },
+    "schema_version": { "type": "string", "minLength": 1 },
+    "visible_context": { "type": "object" },
+    "action_options": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "deadline_s": { "type": "integer", "minimum": 1 }
+  },
+  "additionalProperties": false
+}
