@@ -104,8 +104,9 @@ class GameState:
 
 
 class GameCore:
-    def __init__(self, state_file: str | None = None):
+    def __init__(self, state_file: str | None = None, rng: random.Random | None = None):
         self.state_file = Path(state_file) if state_file else None
+        self.rng = rng or random.Random()
         self.state = GameState()
         self._load_state()
 
@@ -147,7 +148,7 @@ class GameCore:
             raise ValueError(f"板子 {board_name} 需要 {len(roles)} 人，但给了 {len(player_names)} 人")
 
         shuffled = [r.value for r in roles]
-        random.shuffle(shuffled)
+        self.rng.shuffle(shuffled)
 
         players: list[Player] = []
         for idx, name in enumerate(player_names):
@@ -248,17 +249,29 @@ class GameCore:
 
     def process_vote(self, votes: dict[str, str]) -> dict[str, Any]:
         counts: dict[str, int] = {}
+        rejected: list[dict[str, str]] = []
         for voter, target in votes.items():
             voter_p = self._get_player(voter)
             target_p = self._get_player(target)
-            if not voter_p or not target_p:
+            if not voter_p:
+                rejected.append({"voter": voter, "target": target, "reason": "unknown_voter"})
                 continue
-            if not voter_p.alive or not voter_p.can_vote:
+            if not target_p:
+                rejected.append({"voter": voter, "target": target, "reason": "unknown_target"})
+                continue
+            if not voter_p.alive:
+                rejected.append({"voter": voter, "target": target, "reason": "dead_voter"})
+                continue
+            if not voter_p.can_vote:
+                rejected.append({"voter": voter, "target": target, "reason": "voter_cannot_vote"})
+                continue
+            if not target_p.alive:
+                rejected.append({"voter": voter, "target": target, "reason": "dead_target"})
                 continue
             counts[target] = counts.get(target, 0) + 1
 
         if not counts:
-            return {"out": None, "tie": False, "counts": {}}
+            return {"out": None, "tie": False, "counts": {}, "rejected": rejected}
 
         max_votes = max(counts.values())
         candidates = [name for name, c in counts.items() if c == max_votes]
@@ -278,7 +291,7 @@ class GameCore:
         self.state.last_day_voted = out_name
         self.state.phase = "day_last_words"
         self._save_state()
-        return {"out": out_name, "tie": len(candidates) > 1, "counts": counts}
+        return {"out": out_name, "tie": len(candidates) > 1, "counts": counts, "rejected": rejected}
 
     def check_winner(self) -> str | None:
         wolves = [p for p in self.state.players if p.alive and p.team == Team.WEREWOLF.value]

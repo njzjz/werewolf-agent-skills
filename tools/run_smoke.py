@@ -7,6 +7,7 @@ Usage:
 
 from __future__ import annotations
 
+import random
 import tempfile
 import sys
 from pathlib import Path
@@ -76,7 +77,7 @@ def test_channels() -> None:
 def test_game_core() -> None:
     with tempfile.TemporaryDirectory() as td:
         state_file = Path(td) / "game_state.json"
-        core = GameCore(state_file=str(state_file))
+        core = GameCore(state_file=str(state_file), rng=random.Random(1))
         players = ["p1", "p2", "p3", "p4", "p5", "p6"]
         core.setup_game(players, "6人")
 
@@ -86,14 +87,14 @@ def test_game_core() -> None:
         vote = core.process_vote(
             {
                 "p1": "p2",
-                "p2": "p3",
-                "p3": "p2",
+                "p2": "p4",
                 "p4": "p2",
                 "p5": "p2",
                 "p6": "p2",
             }
         )
         assert "out" in vote
+        assert vote["rejected"] == []
 
 
 def test_e2e_sim() -> None:

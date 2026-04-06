@@ -27,6 +27,7 @@ packages/
   werewolf_core/
 docs/
   architecture.md
+  migration.md
 tests/
 ```
 
@@ -41,3 +42,13 @@ tests/
 旧目录 `skills/werewolf` 已删除。请直接使用：
 - `skills/werewolf-judge`
 - `skills/werewolf-player`
+
+## Migration
+
+迁移说明见 `docs/migration.md`。
+
+## Notes
+
+- 当前代码按 Python 3.10+ 语法编写；为兼容 3.10，时区时间统一使用 `timezone.utc`，不依赖 `datetime.UTC`。
+- e2e/batch 回归默认走进程内 player responder，避免批量测试时频繁启动 Python 子进程。
+- 审计日志默认采用追加式 JSONL 持久化，避免每条事件都重写完整 snapshot。

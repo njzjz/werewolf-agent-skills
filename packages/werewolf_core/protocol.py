@@ -19,13 +19,6 @@ class ValidationError(ValueError):
         return f"{self.code}: {self.message}"
 
 
-@dataclass
-class ValidationResult:
-    ok: bool
-    error_code: str | None = None
-    error_message: str | None = None
-
-
 ALLOWED_INTENTS = {"speak", "vote", "night_action"}
 ALLOWED_PHASES = {
     "setup",
@@ -118,8 +111,9 @@ def validate_judge_task(payload: Any) -> dict[str, Any]:
     if phase not in ALLOWED_PHASES:
         raise _err("E_PHASE", f"phase must be one of {sorted(ALLOWED_PHASES)}")
 
-    visible_context = data.get("visible_context")
-    _require_dict(visible_context, "visible_context")
+    if "visible_context" not in data:
+        raise _err("E_FIELD", "visible_context is required")
+    visible_context = _require_dict(data["visible_context"], "visible_context")
 
     action_options = _require_list(data, "action_options")
     if not action_options:
@@ -131,6 +125,8 @@ def validate_judge_task(payload: Any) -> dict[str, Any]:
     if not isinstance(deadline_s, int) or deadline_s <= 0:
         raise _err("E_FIELD", "deadline_s must be a positive integer")
 
+    # Keep explicit reference to the validated object for readability/future hooks.
+    _ = visible_context
     return data
 
 
@@ -153,8 +149,9 @@ def validate_player_reply(payload: Any) -> dict[str, Any]:
     if intent not in ALLOWED_INTENTS:
         raise _err("E_INTENT", f"intent must be one of {sorted(ALLOWED_INTENTS)}")
 
-    content = data.get("content")
-    _require_dict(content, "content")
+    if "content" not in data:
+        raise _err("E_FIELD", "PlayerReply.content is required")
+    content = _require_dict(data["content"], "content")
     _reject_unknown_keys(content, _PLAYER_REPLY_CONTENT_ALLOWED, "PlayerReply.content")
 
     _optional_str(content, "speech")

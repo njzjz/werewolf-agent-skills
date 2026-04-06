@@ -9,17 +9,17 @@ This module wires:
 
 from __future__ import annotations
 
-import json
 import random
-import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .fsm import GamePhase
 from .game import GameCore, Role
 from .orchestrator import JudgeOrchestrator
 from .protocol import ValidationError
+
+PlayerResponder = Callable[[dict[str, Any]], dict[str, Any]]
 
 
 def _default_target(candidates: list[str], avoid: str | None = None) -> str | None:
@@ -27,19 +27,6 @@ def _default_target(candidates: list[str], avoid: str | None = None) -> str | No
         if avoid is None or c != avoid:
             return c
     return candidates[0] if candidates else None
-
-
-def _invoke_player_responder(task: dict[str, Any], responder_path: Path) -> dict[str, Any]:
-    proc = subprocess.run(
-        [sys.executable, str(responder_path)],
-        input=json.dumps(task, ensure_ascii=False),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(f"responder failed: {proc.stderr.strip()}")
-    return json.loads(proc.stdout)
 
 
 def _build_task(
@@ -71,12 +58,20 @@ def simulate_game_6p(
     seed: int = 7,
     max_days: int = 6,
     state_file: str | None = None,
+    player_responder: PlayerResponder | None = None,
 ) -> dict[str, Any]:
     """Run a 6-player deterministic simulation and return summary."""
-    random.seed(seed)
+    if player_responder is None:
+        repo_root = Path(__file__).resolve().parents[2]
+        responder_dir = repo_root / "skills" / "werewolf-player"
+        if str(responder_dir) not in sys.path:
+            sys.path.insert(0, str(responder_dir))
+        from responder import build_player_reply as player_responder
+
+    rng = random.Random(seed)
 
     players = [f"p{i}" for i in range(1, 7)]
-    core = GameCore(state_file=state_file)
+    core = GameCore(state_file=state_file, rng=rng)
     setup = core.setup_game(players, "6人")
 
     wolves = [a["player"] for a in setup["assignments"] if a["role"] == Role.WEREWOLF.value]
@@ -84,8 +79,6 @@ def simulate_game_6p(
     witches = [a["player"] for a in setup["assignments"] if a["role"] == Role.WITCH.value]
 
     game_id = f"sim-6p-seed-{seed}"
-    repo_root = Path(__file__).resolve().parents[2]
-    responder_path = repo_root / "skills" / "werewolf-player" / "responder.py"
 
     orchestrator = JudgeOrchestrator(players=players, wolves=wolves)
     public_feed: list[dict[str, Any]] = []
@@ -113,7 +106,7 @@ def simulate_game_6p(
             )
             orchestrator.validate_judge_task_payload(task)
             try:
-                reply = _invoke_player_responder(task, responder_path)
+                reply = player_responder(task)
                 reply = orchestrator.accept_player_reply(reply, actor=wolf)
             except (ValidationError, RuntimeError):
                 reply = {
@@ -152,7 +145,7 @@ def simulate_game_6p(
                 )
                 orchestrator.validate_judge_task_payload(task)
                 try:
-                    reply = _invoke_player_responder(task, responder_path)
+                    reply = player_responder(task)
                     reply = orchestrator.accept_player_reply(reply, actor=seer)
                     target = reply.get("content", {}).get("target")
                     if target in alive and target != seer:
@@ -177,7 +170,7 @@ def simulate_game_6p(
                 )
                 orchestrator.validate_judge_task_payload(task)
                 try:
-                    reply = _invoke_player_responder(task, responder_path)
+                    reply = player_responder(task)
                     reply = orchestrator.accept_player_reply(reply, actor=witch)
                     maybe_target = reply.get("content", {}).get("target")
                     if maybe_target in alive and maybe_target != witch:
@@ -235,7 +228,7 @@ def simulate_game_6p(
             )
             orchestrator.validate_judge_task_payload(task)
             try:
-                reply = _invoke_player_responder(task, responder_path)
+                reply = player_responder(task)
                 reply = orchestrator.accept_player_reply(reply, actor=player)
                 speech = reply.get("content", {}).get("speech") or "过"
             except (ValidationError, RuntimeError):
@@ -258,8 +251,9 @@ def simulate_game_6p(
                 public_feed=public_feed,
             )
             orchestrator.validate_judge_task_payload(task)
+
             try:
-                reply = _invoke_player_responder(task, responder_path)
+                reply = player_responder(task)
                 reply = orchestrator.accept_player_reply(reply, actor=voter)
                 target = reply.get("content", {}).get("target")
             except (ValidationError, RuntimeError):
@@ -277,6 +271,7 @@ def simulate_game_6p(
                 "event": "vote_result",
                 "out": vote_result["out"],
                 "counts": vote_result["counts"],
+                "rejected": vote_result["rejected"],
             }
         )
 

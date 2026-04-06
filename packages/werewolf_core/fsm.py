@@ -22,16 +22,16 @@ class GamePhase(str, Enum):
     GAME_OVER = "game_over"
 
 
-ALLOWED_TRANSITIONS: dict[GamePhase, set[GamePhase]] = {
-    GamePhase.SETUP: {GamePhase.NIGHT_WEREWOLF},
-    GamePhase.NIGHT_WEREWOLF: {GamePhase.NIGHT_SEER},
-    GamePhase.NIGHT_SEER: {GamePhase.NIGHT_WITCH},
-    GamePhase.NIGHT_WITCH: {GamePhase.DAY_ANNOUNCE},
-    GamePhase.DAY_ANNOUNCE: {GamePhase.DAY_SPEECH, GamePhase.GAME_OVER},
-    GamePhase.DAY_SPEECH: {GamePhase.DAY_VOTE},
-    GamePhase.DAY_VOTE: {GamePhase.DAY_LAST_WORDS, GamePhase.GAME_OVER},
-    GamePhase.DAY_LAST_WORDS: {GamePhase.NIGHT_WEREWOLF, GamePhase.GAME_OVER},
-    GamePhase.GAME_OVER: set(),
+ALLOWED_TRANSITIONS: dict[GamePhase, tuple[GamePhase, ...]] = {
+    GamePhase.SETUP: (GamePhase.NIGHT_WEREWOLF,),
+    GamePhase.NIGHT_WEREWOLF: (GamePhase.NIGHT_SEER,),
+    GamePhase.NIGHT_SEER: (GamePhase.NIGHT_WITCH,),
+    GamePhase.NIGHT_WITCH: (GamePhase.DAY_ANNOUNCE,),
+    GamePhase.DAY_ANNOUNCE: (GamePhase.DAY_SPEECH, GamePhase.GAME_OVER),
+    GamePhase.DAY_SPEECH: (GamePhase.DAY_VOTE,),
+    GamePhase.DAY_VOTE: (GamePhase.DAY_LAST_WORDS, GamePhase.GAME_OVER),
+    GamePhase.DAY_LAST_WORDS: (GamePhase.NIGHT_WEREWOLF, GamePhase.GAME_OVER),
+    GamePhase.GAME_OVER: (),
 }
 
 
@@ -43,7 +43,11 @@ class WerewolfFSM:
         self.day = day
 
     def allowed_next(self) -> list[GamePhase]:
-        return sorted(ALLOWED_TRANSITIONS[self.phase], key=lambda p: p.value)
+        return list(ALLOWED_TRANSITIONS[self.phase])
+
+    def default_next(self) -> GamePhase | None:
+        allowed = ALLOWED_TRANSITIONS[self.phase]
+        return allowed[0] if allowed else None
 
     def can_transition(self, to_phase: GamePhase) -> bool:
         return to_phase in ALLOWED_TRANSITIONS[self.phase]

@@ -5,13 +5,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .channels import ChannelRegistry
 from .fsm import GamePhase, WerewolfFSM
-from .protocol import validate_judge_task, validate_player_reply, ValidationError
+from .protocol import ValidationError, validate_judge_task, validate_player_reply
 
 
 @dataclass
@@ -40,34 +40,44 @@ class JudgeOrchestrator:
         self.audit_path = Path(audit_path) if audit_path else None
 
     def _now(self) -> str:
-        return datetime.now(UTC).isoformat()
+        return datetime.now(timezone.utc).isoformat()
 
-    def _persist_audit(self) -> None:
+    def _persist_audit(self, audit_event: AuditEvent) -> None:
         if self.audit_path is None:
             return
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
-        self.audit_path.write_text(self.snapshot_json(), encoding="utf-8")
+        record = {
+            "timestamp": audit_event.timestamp,
+            "day": audit_event.day,
+            "phase": audit_event.phase,
+            "actor": audit_event.actor,
+            "event": audit_event.event,
+            "details": audit_event.details,
+        }
+        with self.audit_path.open("a", encoding="utf-8") as audit_file:
+            audit_file.write(json.dumps(record, ensure_ascii=False))
+            audit_file.write("\n")
 
     def _audit(self, actor: str, event: str, **details: Any) -> None:
-        self.audit_log.append(
-            AuditEvent(
-                timestamp=self._now(),
-                day=self.fsm.day,
-                phase=self.fsm.phase.value,
-                actor=actor,
-                event=event,
-                details=details,
-            )
+        audit_event = AuditEvent(
+            timestamp=self._now(),
+            day=self.fsm.day,
+            phase=self.fsm.phase.value,
+            actor=actor,
+            event=event,
+            details=details,
         )
-        self._persist_audit()
+        self.audit_log.append(audit_event)
+        self._persist_audit(audit_event)
 
     def phase_summary(self) -> dict[str, Any]:
         snapshot = self.fsm.snapshot()
+        default_next = self.fsm.default_next()
         return {
             "phase": snapshot["phase"],
             "day": snapshot["day"],
             "allowed_actions": snapshot["allowed_next"],
-            "next_step": snapshot["allowed_next"][0] if snapshot["allowed_next"] else None,
+            "next_step": default_next.value if default_next else None,
         }
 
     def transition(self, to_phase: GamePhase, actor: str = "judge") -> None:
@@ -90,21 +100,15 @@ class JudgeOrchestrator:
         self._audit(actor=actor, event="judge_task_valid", target_player=task["player_id"], phase=task["phase"])
         return task
 
-    def accept_player_reply(self, payload: dict[str, Any], actor: str, *, max_retries: int = 2) -> dict[str, Any]:
-        attempts = 0
-        while True:
-            attempts += 1
-            try:
-                reply = validate_player_reply(payload)
-            except ValidationError as exc:
-                self._audit(actor=actor, event="invalid_player_reply", attempt=attempts, error=str(exc))
-                if attempts > max_retries:
-                    self._audit(actor="judge", event="player_reply_degraded", actor_id=actor, reason="max_retries_exceeded")
-                    raise
-                continue
+    def accept_player_reply(self, payload: dict[str, Any], actor: str) -> dict[str, Any]:
+        try:
+            reply = validate_player_reply(payload)
+        except ValidationError as exc:
+            self._audit(actor=actor, event="invalid_player_reply", error=str(exc))
+            raise
 
-            self._audit(actor=actor, event="player_reply_accepted", attempt=attempts, intent=reply["intent"])
-            return reply
+        self._audit(actor=actor, event="player_reply_accepted", intent=reply["intent"])
+        return reply
 
     def channel_write(self, channel: str, actor: str, payload: dict[str, Any]) -> None:
         ch = self.channels.get(channel)

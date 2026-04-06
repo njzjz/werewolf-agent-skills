@@ -37,8 +37,8 @@ def main() -> None:
     parser.add_argument("--wolves", default="", help="comma-separated wolf player ids")
     parser.add_argument(
         "--audit",
-        default="skills/werewolf-judge/runtime/audit.json",
-        help="audit snapshot output path",
+        default="skills/werewolf-judge/runtime/audit.jsonl",
+        help="append-only audit log output path (JSONL)",
     )
     parser.add_argument(
         "--payload",

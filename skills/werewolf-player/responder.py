@@ -26,7 +26,7 @@ def _pick_default_target(options: list[str], player_id: str) -> str | None:
     return options[0] if options else None
 
 
-def _build_reply(task: dict[str, Any]) -> dict[str, Any]:
+def build_player_reply(task: dict[str, Any]) -> dict[str, Any]:
     intent = "speak"
     phase = task["phase"]
 
@@ -39,9 +39,9 @@ def _build_reply(task: dict[str, Any]) -> dict[str, Any]:
 
     speech = "仅基于公开信息判断，先给出保守选择。"
     if intent == "vote":
-        speech = f"当前信息有限，我暂投 {target}。"
+        speech = f"当前信息有限，我暂投 {target}."
     elif intent == "night_action":
-        speech = f"按本角色夜间职责，行动目标 {target}。"
+        speech = f"按本角色夜间职责，行动目标 {target}."
 
     return {
         "game_id": task["game_id"],
@@ -63,7 +63,7 @@ def main() -> None:
 
     task = json.loads(raw)
     task = validate_judge_task(task)
-    reply = _build_reply(task)
+    reply = build_player_reply(task)
     sys.stdout.write(json.dumps(reply, ensure_ascii=False))
 
 
