@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Smoke test for FSM transitions and summary output."""
 
-from packages.werewolf_core.fsm import GamePhase
-from packages.werewolf_core.orchestrator import JudgeOrchestrator
+from werewolf_core.fsm import GamePhase
+from werewolf_core.orchestrator import JudgeOrchestrator
 
 
 def test_fsm_flow_and_summary() -> None:

@@ -13,10 +13,11 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+PACKAGE_ROOT = REPO_ROOT / "packages"
+if str(PACKAGE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_ROOT))
 
-from packages.werewolf_core.protocol import validate_judge_task
+from werewolf_core.protocol import validate_judge_task
 
 
 def _pick_default_target(options: list[str], player_id: str) -> str | None:

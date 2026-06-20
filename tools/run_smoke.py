@@ -8,21 +8,22 @@ Usage:
 from __future__ import annotations
 
 import random
-import tempfile
 import sys
+import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+PACKAGE_ROOT = REPO_ROOT / "packages"
+if str(PACKAGE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_ROOT))
 
-from packages.werewolf_core.batch import run_batch_simulations
-from packages.werewolf_core.channels import ChannelAccessError, ChannelRegistry
-from packages.werewolf_core.e2e import simulate_game_6p
-from packages.werewolf_core.fsm import GamePhase
-from packages.werewolf_core.game import GameCore
-from packages.werewolf_core.orchestrator import JudgeOrchestrator
-from packages.werewolf_core.protocol import ValidationError, validate_judge_task, validate_player_reply
+from werewolf_core.batch import run_batch_simulations
+from werewolf_core.channels import ChannelAccessError, ChannelRegistry
+from werewolf_core.fsm import GamePhase
+from werewolf_core.game import GameCore
+from werewolf_core.orchestrator import JudgeOrchestrator
+from werewolf_core.protocol import ValidationError, validate_judge_task, validate_player_reply
+from werewolf_core.runner import simulate_game_6p
 
 
 def test_fsm() -> None:

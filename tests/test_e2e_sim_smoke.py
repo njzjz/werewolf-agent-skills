@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""E2E simulation smoke tests."""
+"""Formal game runner smoke tests."""
 
-from packages.werewolf_core.e2e import simulate_game_6p
+from werewolf_core.runner import simulate_game_6p
 
 
 def test_e2e_simulate_game_6p_runs() -> None:

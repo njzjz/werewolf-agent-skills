@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Protocol validation smoke tests."""
 
-from packages.werewolf_core.protocol import ValidationError, validate_judge_task, validate_player_reply
+import pytest
+from werewolf_core.protocol import ValidationError, validate_judge_task, validate_player_reply
 
 
 def test_validate_judge_task_ok() -> None:
@@ -27,11 +28,9 @@ def test_validate_judge_task_missing_visible_context_is_field_error() -> None:
         "action_options": ["p2", "p3"],
         "deadline_s": 30,
     }
-    try:
+    with pytest.raises(ValidationError) as exc_info:
         validate_judge_task(payload)
-        assert False, "should fail"
-    except ValidationError as exc:
-        assert exc.code == "E_FIELD"
+    assert exc_info.value.code == "E_FIELD"
 
 
 def test_validate_player_reply_rejects_unknown_field() -> None:
@@ -42,11 +41,9 @@ def test_validate_player_reply_rejects_unknown_field() -> None:
         "intent": "speak",
         "content": {"speech": "hi", "confidence": 0.5, "hack": True},
     }
-    try:
+    with pytest.raises(ValidationError) as exc_info:
         validate_player_reply(payload)
-        assert False, "should fail"
-    except ValidationError as exc:
-        assert exc.code == "E_UNKNOWN_FIELD"
+    assert exc_info.value.code == "E_UNKNOWN_FIELD"
 
 
 def test_validate_player_reply_missing_content_is_field_error() -> None:
@@ -56,8 +53,6 @@ def test_validate_player_reply_missing_content_is_field_error() -> None:
         "schema_version": "v1",
         "intent": "speak",
     }
-    try:
+    with pytest.raises(ValidationError) as exc_info:
         validate_player_reply(payload)
-        assert False, "should fail"
-    except ValidationError as exc:
-        assert exc.code == "E_FIELD"
+    assert exc_info.value.code == "E_FIELD"
