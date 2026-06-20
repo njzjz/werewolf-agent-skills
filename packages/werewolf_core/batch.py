@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 from dataclasses import dataclass
 from typing import Any
 
-from .e2e import simulate_game_6p
+from .runner import simulate_game_6p
 
 
 @dataclass
@@ -55,3 +57,19 @@ def run_batch_simulations(
         ).__dict__,
         "details": details,
     }
+
+
+def main() -> None:
+    """CLI entrypoint for deterministic batch regression simulations."""
+    parser = argparse.ArgumentParser(description="Run deterministic batch simulations")
+    parser.add_argument("--runs", type=int, default=20)
+    parser.add_argument("--seed-start", type=int, default=1)
+    parser.add_argument("--max-days", type=int, default=6)
+    args = parser.parse_args()
+
+    out = run_batch_simulations(runs=args.runs, seed_start=args.seed_start, max_days=args.max_days)
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()

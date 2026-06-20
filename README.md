@@ -8,6 +8,8 @@
 
 ## 当前状态（重构进行中）
 
+本仓库现在按正式 Python package 管理：核心逻辑以 `werewolf_core` 包发布，`tools/` 只保留薄 CLI wrapper，CI 负责 lint、单元测试和批量回归。
+
 重构主线见 issues：
 - #7 拆分 `werewolf-judge / werewolf-player / werewolf-core`
 - #8 协议层（JudgeTask/PlayerReply）
@@ -24,11 +26,26 @@ skills/
   werewolf-judge/
   werewolf-player/
 packages/
-  werewolf_core/
+  werewolf_core/        # import path: werewolf_core
+.github/workflows/
+  ci.yml
 docs/
   architecture.md
   migration.md
 tests/
+tools/
+  run_game.py           # 单局 runner wrapper
+  run_batch.py          # 批量回归 wrapper
+```
+
+## Development
+
+```bash
+python -m pip install -e '.[dev]'
+ruff check .
+pytest -q
+python tools/run_game.py --seed 1 --max-days 6
+python tools/run_batch.py --runs 50 --seed-start 1 --max-days 6
 ```
 
 ## Why this refactor

@@ -34,14 +34,15 @@ packages/
 
 - 不再假设单个 skill 同时扮演法官和玩家。
 - Judge 与 Player 间通信应走结构化 JSON：`JudgeTask` / `PlayerReply`。
-- 新代码应优先依赖 `packages/werewolf_core`，而不是复制旧脚本实现。
+- 新代码应优先依赖正式 import 包 `werewolf_core`，而不是复制旧脚本实现；源码仍位于 `packages/werewolf_core/`。
 
 ## 建议替换路径
 
 - `skills/werewolf/scripts/game_engine.py` → `packages/werewolf_core/game.py`
 - `skills/werewolf/scripts/judge_prompt.py` → `packages/werewolf_core/prompting.py`
 - `skills/werewolf/scripts/player_prompts.py` → `skills/werewolf-player/responder.py`
+- 旧的临时 e2e 主流程 → `packages/werewolf_core/runner.py`
 
 ## 当前状态
 
-本文档当前只覆盖目录与职责迁移。更细的协议字段、FSM 阶段流转和测试入口说明，后续会继续补充。
+本文档当前覆盖目录、职责和正式 package 入口。CI 会运行 `ruff check .`、`pytest -q` 和 `tools/run_batch.py` 批量 smoke，避免核心流程重新散落回脚本。更细的协议字段和 FSM 阶段流转说明，后续会继续补充。

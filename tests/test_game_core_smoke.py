@@ -3,7 +3,7 @@
 
 import random
 
-from packages.werewolf_core.game import GameCore
+from werewolf_core.game import GameCore
 
 
 def test_game_core_6p_setup_and_roundtrip(tmp_path) -> None:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Batch regression smoke tests."""
 
-from packages.werewolf_core.batch import run_batch_simulations
+from werewolf_core.batch import run_batch_simulations
 
 
 def test_batch_simulations_runs() -> None:
